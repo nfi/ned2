@@ -30,20 +30,53 @@ class Ned2:
             self.close()
         return success
 
-    def move_pose(self, pose, title=None) -> bool:
-        return self.__move(self.robot.arm.move_pose, pose, title)
-
-    def move_joints(self, joints, title=None) -> bool:
-        return self.__move(self.robot.arm.move_joints, joints, title)
-
     def close(self):
         robot = self.robot
         self.robot = None
         if robot:
             robot.arm.go_to_sleep()
 
+    def is_offline(self):
+        return self.robot is None
+
+    def __check_offline(self):
+        if self.is_offline():
+            print("Ned2: offline")
+            return True
+        return False
+
+    def hardware_status(self):
+        return self.robot.arm.hardware_status() if self.robot else 'Not connected'
+
+    def joints_state(self):
+        if self.__check_offline():
+            return None
+        return self.robot.arm.joints_state() if self.robot else None
+
+    def get_pose(self):
+        if self.__check_offline():
+            return None
+        return self.robot.arm.get_pose()
+
+    def move_pose(self, pose, title=None) -> bool:
+        if self.__check_offline():
+            return False
+        return self.__move(self.robot.arm.move_pose, pose, title)
+
+    def move_joints(self, joints, title=None) -> bool:
+        if self.__check_offline():
+            return False
+        return self.__move(self.robot.arm.move_joints, joints, title)
+
+    def move_to_home_pose(self):
+        if self.__check_offline():
+            return None
+        return self.robot.arm.move_to_home_pose()
+
     @staticmethod
     def pose_to_str(pose: PoseObject):
+        if not pose:
+            return 'None'
         return ('PoseObject(x={:.4f}, y={:.4f}, z={:.4f}, roll={:.3f}, pitch={:.3f}, yaw={:.3f})'
                 .format(pose.x, pose.y, pose.z, pose.roll, pose.pitch, pose.yaw))
 
@@ -60,8 +93,28 @@ class Ned2:
                 raise ValueError("Input string must contain exactly six float numbers.")
             return self.pose_from_list(float_list)
         except ValueError as e:
-            print("Failed to parse pose:", e)
+            print("Failed to parse pose {}: {}".format(input_text, e))
             return None
+
+    def pick_from_pose(self, pose):
+        if self.__check_offline():
+            return None
+        return self.robot.pick_place.pick_from_pose(pose)
+
+    def place_from_pose(self, pose):
+        if self.__check_offline():
+            return None
+        return self.robot.pick_place.place_from_pose(pose)
+
+    def open_gripper(self):
+        if self.__check_offline():
+            return None
+        return self.robot.tool.open_gripper()
+
+    def close_gripper(self):
+        if self.__check_offline():
+            return None
+        return self.robot.tool.close_gripper()
 
     def __call_setup(self, setup_function, success_callback, failure_callback) -> bool:
         self.__setup_event.clear()
@@ -107,6 +160,6 @@ class Ned2:
         self.__move_event.wait(30)
         if not self.__move_event.is_set() or self.__has_errors:
             return False
-        if title is not None:
+        if title is not None and self.robot:
             print('Ned2:  move done. Pose is', self.pose_to_str(self.robot.arm.get_pose()))
         return True

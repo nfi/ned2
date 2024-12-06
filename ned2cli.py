@@ -15,13 +15,13 @@ class Ned2Cli(cmd.Cmd):
     prompt = 'Ned2> '
     intro = 'Welcome to Ned2CLI. Type "help" for available commands.'
 
-    def __init__(self):
+    def __init__(self, offline=False):
         super().__init__()
         self.__pose_file = LOCAL_POSE_FILE
         self.ned2 = ned2.Ned2()
         self.base_poses = self.__load_poses_from_yaml(BASE_POSE_FILE)
         self.poses = self.__load_poses_from_yaml(self.__pose_file)
-        if not self.ned2.open():
+        if not offline and not self.ned2.open():
             print("Failed to connect and setup the robot arm.")
             quit()
 
@@ -58,16 +58,16 @@ class Ned2Cli(cmd.Cmd):
             yaml.dump(self.poses, file, default_flow_style=False)
 
     def __print_poses(self, poses):
-        [print(' ', key, self.ned2.pose_to_str(self.ned2.pose_from_list(value))) for key, value in poses.items()]
+        [print(' ', key.ljust(24), self.ned2.pose_to_str(self.ned2.pose_from_list(value))) for key, value in poses.items()]
         print()
 
     def do_status(self, _line):
         """Show hardware status."""
-        print('Hardware status:', self.ned2.robot.arm.hardware_status())
+        print('Hardware status:', self.ned2.hardware_status())
 
     def do_list(self, _line):
         """List saved poses"""
-        if _line == "robot":
+        if _line == "robot" and self.ned2.robot:
             print("Saved poses in the robot:")
             print(self.ned2.robot.saved_poses.get_saved_pose_list())
         else:
@@ -79,18 +79,18 @@ class Ned2Cli(cmd.Cmd):
 
     def do_pose(self, _line):
         """Show current arm pose"""
-        print('Pose is', self.ned2.pose_to_str(self.ned2.robot.arm.get_pose()))
+        print('Pose is', self.ned2.pose_to_str(self.ned2.get_pose()))
 
     def do_joints(self, _line):
         """Show current arm joints"""
-        print('Joints are', self.ned2.robot.arm.joints_state())
+        print('Joints are', self.ned2.joints_state())
 
     def do_save(self, line):
         """Save current pose as specified name"""
         if not line:
             print("Please provide a name for the post to save")
         else:
-            self.poses[line] = self.ned2.robot.arm.get_pose().to_list()
+            self.poses[line] = self.ned2.get_pose().to_list()
             self.__save_poses_to_yaml()
             print("Saved current pose as", line)
 
@@ -116,7 +116,7 @@ class Ned2Cli(cmd.Cmd):
 
     def do_home(self, _line):
         """Move to home pose"""
-        self.ned2.robot.arm.move_to_home_pose()
+        self.ned2.move_to_home_pose()
 
     def do_move(self, line):
         """Move to specified pose"""
@@ -128,29 +128,29 @@ class Ned2Cli(cmd.Cmd):
         """Pick up from specified pose"""
         pose = self.__get_pose(line)
         if pose:
-            self.ned2.robot.pick_place.pick_from_pose(pose)
+            self.ned2.pick_from_pose(pose)
 
     def do_place(self, line):
         """Place to specified pose"""
         pose = self.__get_pose(line)
         if pose:
-            self.ned2.robot.pick_place.place_from_pose(pose)
+            self.ned2.place_from_pose(pose)
 
     def do_grasp(self, _line):
         """Close the gripper"""
-        self.ned2.robot.tool.close_gripper()
+        self.ned2.close_gripper()
 
     def do_close(self, _line):
         """Close the gripper"""
-        self.ned2.robot.tool.close_gripper()
+        self.ned2.close_gripper()
 
     def do_release(self, _line):
         """Open the gripper"""
-        self.ned2.robot.tool.open_gripper()
+        self.ned2.open_gripper()
 
     def do_open(self, _line):
         """Open the gripper"""
-        self.ned2.robot.tool.open_gripper()
+        self.ned2.open_gripper()
 
     @staticmethod
     def do_quit(_line):
@@ -169,7 +169,7 @@ class Ned2Cli(cmd.Cmd):
             return False
 
 if __name__ == '__main__':
-    cli = Ned2Cli()
+    cli = Ned2Cli(offline=False)
     cli.cmdloop()
     if cli.ned2 is not None:
         cli.ned2.close()
