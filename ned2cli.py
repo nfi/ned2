@@ -72,7 +72,7 @@ class Ned2Cli(cmd.Cmd):
             print(self.ned2.robot.saved_poses.get_saved_pose_list())
         else:
             if self.base_poses:
-                print("Saved base poses:")
+                print("Base poses:")
                 self.__print_poses(self.base_poses)
             print("Saved poses:")
             self.__print_poses(self.poses)

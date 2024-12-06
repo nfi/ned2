@@ -4,6 +4,7 @@ from threading import Event
 from pyniryo2 import *
 
 DEFAULT_ROBOT_IP = "10.10.10.10"
+HOME_POSE = PoseObject(x=0.1340, y=-0.0001, z=0.1649, roll=0.002, pitch=1.006, yaw=-0.001)
 
 class Ned2:
     """
@@ -13,8 +14,9 @@ class Ned2:
         self.__host = robot_ip
         self.__setup_event = Event()
         self.__move_event = Event()
-        self.robot = None
         self.__has_errors = False
+        self.__current_pose = HOME_POSE
+        self.robot = None
         self.verbose = True
 
     def open(self):
@@ -27,7 +29,7 @@ class Ned2:
                                         self.__update_tool_success_callback,
                                         self.__update_tool_failure_callback)
         if not success:
-            self.close()
+            self.robot = None
         return success
 
     def close(self):
@@ -54,14 +56,10 @@ class Ned2:
         return self.robot.arm.joints_state() if self.robot else None
 
     def get_pose(self):
-        if self.__check_offline():
-            return None
-        return self.robot.arm.get_pose()
+        return self.robot.arm.get_pose() if self.robot else self.__current_pose
 
     def move_pose(self, pose, title=None) -> bool:
-        if self.__check_offline():
-            return False
-        return self.__move(self.robot.arm.move_pose, pose, title)
+        return self.__move_offline(pose, title) if self.is_offline() else self.__move(self.robot.arm.move_pose, pose, title)
 
     def move_joints(self, joints, title=None) -> bool:
         if self.__check_offline():
@@ -69,9 +67,10 @@ class Ned2:
         return self.__move(self.robot.arm.move_joints, joints, title)
 
     def move_to_home_pose(self):
-        if self.__check_offline():
-            return None
-        return self.robot.arm.move_to_home_pose()
+        if self.is_offline():
+            self.__current_pose = HOME_POSE
+        else:
+            self.robot.arm.move_to_home_pose()
 
     @staticmethod
     def pose_to_str(pose: PoseObject):
@@ -160,6 +159,15 @@ class Ned2:
         self.__move_event.wait(30)
         if not self.__move_event.is_set() or self.__has_errors:
             return False
+        self.__current_pose = self.robot.arm.get_pose()
         if title is not None and self.robot:
-            print('Ned2:  move done. Pose is', self.pose_to_str(self.robot.arm.get_pose()))
+            print('Ned2:  move done. Pose is', self.pose_to_str(self.__current_pose))
+        return True
+
+    def __move_offline(self, pose, title=None):
+        if title is not None:
+            print('Ned2: Move to', title)
+        self.__current_pose = pose
+        if title is not None:
+            print('Ned2:  move done. Pose is', self.pose_to_str(pose))
         return True
