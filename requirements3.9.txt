@@ -1,4 +1,0 @@
-setuptools==46.4.0
-numpy<2.0
-pyniryo2
-pyyaml
