@@ -118,7 +118,7 @@ class Ned2:
     def __call_setup(self, setup_function, success_callback, failure_callback) -> bool:
         self.__setup_event.clear()
         setup_function(callback=success_callback, errback=failure_callback)
-        self.__setup_event.wait(25)
+        self.__setup_event.wait(15)
         return self.__setup_event.is_set() and not self.__has_errors
 
     def __calibrate_success_callback(self, result):
@@ -156,8 +156,11 @@ class Ned2:
         if title is not None:
             print('Ned2: Move to', title)
         move_function(target, callback=self.__move_callback)
-        self.__move_event.wait(30)
-        if not self.__move_event.is_set() or self.__has_errors:
+        self.__move_event.wait(10)
+        if self.__has_errors:
+            return False
+        if not self.__move_event.is_set():
+            print("*** timeout")
             return False
         self.__current_pose = self.robot.arm.get_pose()
         if title is not None and self.robot:
