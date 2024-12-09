@@ -3,24 +3,26 @@
 from pyniryo2 import *
 from threading import Event
 
-# Some example arm poses
+# The robot arm can be moved to a specific pose or joints
+# Example pose for robot arm to be raised and centered
 raised_center_pose = PoseObject(
     x=0.2003, y=-0.0171, z=0.2848,
     roll=-0.769, pitch=1.543, yaw=-0.752
 )
+# Example joints for robot arm to be raised and centered
 raised_center_joints = [-0.081, 0.239, -0.595, -0.017, -1.201, -0.093]
 
+# Example pose for robot arm to touch the table in front of the robot arm
 place_center_pose = PoseObject(
     x=0.2495, y=-0.0109, z=0.0945,
     roll=-2.763, pitch=1.533, yaw=-2.725
 )
-place_center_joints = [-0.042, -0.544, -0.646, -0.041, -0.414, -0.043]
 
+# Example pose for robot arm to touch the table to the left of the robot arm
 place_left_pose = PoseObject(
     x=0.2464, y=-0.1004, z=0.0930,
     roll=-1.523, pitch=1.557, yaw=-1.398
 )
-place_left_joints = [-0.386, -0.588, -0.570, -0.029, -0.405, -0.488]
 
 # Default robot arm address
 robot_ip: str = "10.10.10.10"
@@ -65,6 +67,8 @@ def _move_callback(result):
 
 
 def close(robot):
+    """Prepare the robot arm for disconnect."""
+    # The robot should always be moved to home pose before disconnect. This function handles all such things.
     robot.arm.go_to_sleep()
 
 
@@ -74,6 +78,7 @@ def _pose_to_str(pose: PoseObject):
 
 
 def move_pose(robot, title, pose):
+    """Move the robot arm to specified pose."""
     _move_event.clear()
     print('Move to', title)
     robot.arm.move_pose(pose, callback=_move_callback)
@@ -86,6 +91,7 @@ def move_pose(robot, title, pose):
 
 
 def move_joints(robot, title, joints):
+    """Move the robot arm to specified joints."""
     _move_event.clear()
     print('Move to', title)
     robot.arm.move_joints(joints, callback=_move_callback)
@@ -98,6 +104,8 @@ def move_joints(robot, title, joints):
 
 
 def run_actions(robot):
+    """Actions to run when the robot arm has been connected and calibrated."""
+    # Some example actions
     move_joints(robot, 'raised center', raised_center_joints)
     robot.pick_place.pick_from_pose(place_left_pose)
     robot.pick_place.place_from_pose(place_center_pose)
@@ -108,7 +116,8 @@ def run_actions(robot):
 if __name__ == "__main__":
     ned2_robot: NiryoRobot = NiryoRobot(robot_ip)
 
-    # Calibrate robot arm if needed. The robot arm must always be in a calibrated state
+    # Calibrate robot arm if needed. The robot arm must always be in a calibrated state and this action should
+    # always be done after connecting to the robot arm.
     _setup_event.clear()
     ned2_robot.arm.calibrate_auto(callback=_calibrate_success_callback, errback=_calibrate_failure_callback)
     _setup_event.wait(25)
@@ -116,6 +125,7 @@ if __name__ == "__main__":
         close(ned2_robot)
         quit()
 
+    # Update information about any connected tool. Should always be done before using the tool.
     _setup_event.clear()
     ned2_robot.tool.update_tool(callback=_update_tool_success_callback, errback=_update_tool_failure_callback)
     _setup_event.wait(25)
@@ -123,6 +133,8 @@ if __name__ == "__main__":
         close(ned2_robot)
         quit()
 
+    # Run any robot arm actions
     run_actions(ned2_robot)
 
+    # Prepare robot for disconnect. The robot should always be moved to home pose before disconnect.
     close(ned2_robot)
