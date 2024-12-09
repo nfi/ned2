@@ -46,7 +46,7 @@ help
 
 Exit the application:
 ```shell
-exit
+quit
 ```
 
 ## Installation
